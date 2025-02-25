@@ -4,6 +4,11 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+# Default route to check if the server is running
+@app.route('/')
+def home():
+    return "MonishAI Power Broker is running!"
+
 # Load API credentials from Railway environment variables
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 RAPIDAPI_HOST = "open-ai21.p.rapidapi.com"
@@ -11,8 +16,10 @@ RAPIDAPI_HOST = "open-ai21.p.rapidapi.com"
 @app.route('/get_deal', methods=['POST'])
 def get_deal():
     data = request.get_json()
-    user_text = data.get("text", "Hello")
+    if not data or "text" not in data:
+        return jsonify({"error": "Invalid request. 'text' field is required"}), 400
 
+    user_text = data["text"]
     url = f"https://{RAPIDAPI_HOST}/conversationllama"
     headers = {
         "Content-Type": "application/json",
@@ -24,12 +31,12 @@ def get_deal():
         "web_access": False
     }
 
-    response = requests.post(url, json=payload, headers=headers)
-
-    if response.status_code == 200:
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
         return jsonify(response.json())
-    else:
-        return jsonify({"error": "API call failed", "status": response.status_code}), 400
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
